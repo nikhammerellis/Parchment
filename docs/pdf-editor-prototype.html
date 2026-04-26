@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parchment — PDF Reader & Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #111111;
+      --panel-2: #161616;
+      --border: #222222;
+      --border-strong: #2e2e2e;
+      --text: #e8e8e8;
+      --muted: #6e6e6e;
+      --muted-2: #9a9a9a;
+      --accent: #f59e0b;
+      --accent-soft: rgba(245, 158, 11, 0.12);
+      --danger: #ef4444;
+      --paper: #f5f3ef;
+      --paper-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.8);
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+      --serif: 'Instrument Serif', Georgia, serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+
+    #app {
+      display: grid;
+      grid-template-rows: 56px 44px 1fr;
+      grid-template-columns: 240px 1fr;
+      grid-template-areas:
+        "topbar topbar"
+        "toolbar toolbar"
+        "sidebar main";
+      height: 100vh;
+    }
+
+    /* ---------- TOPBAR ---------- */
+    #topbar {
+      grid-area: topbar;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .brand .logo {
+      font-family: var(--serif);
+      font-size: 26px;
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+    .brand .logo em {
+      color: var(--accent);
+      font-style: italic;
+    }
+    .brand .tag {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .file-name {
+      color: var(--muted-2);
+      font-size: 12px;
+    }
+    .file-name .dot {
+      color: var(--accent);
+      margin-right: 6px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 2px;
+      color: var(--text);
+      font-size: 12px;
+      transition: background 120ms, border-color 120ms;
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--panel-2); border-color: #3a3a3a; }
+    .btn.primary {
+      background: var(--accent);
+      color: #0a0a0a;
+      border-color: var(--accent);
+      font-weight: 500;
+    }
+    .btn.primary:hover { background: #fbbf24; border-color: #fbbf24; }
+    .btn.ghost { border-color: transparent; }
+    .btn.ghost:hover { background: var(--panel-2); }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: transparent !important;
+    }
+
+    /* ---------- TOOLBAR ---------- */
+    #toolbar {
+      grid-area: toolbar;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .tool-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 0 6px;
+      height: 100%;
+      border-right: 1px solid var(--border);
+    }
+    .tool-group:last-child { border-right: none; }
+    .tool-group .label {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding-right: 6px;
+    }
+
+    .tool-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 28px;
+      min-width: 28px;
+      padding: 0 8px;
+      border-radius: 2px;
+      color: var(--muted-2);
+      font-size: 11px;
+      transition: background 100ms, color 100ms;
+    }
+    .tool-btn:hover { background: var(--panel-2); color: var(--text); }
+    .tool-btn.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .tool-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .color-swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      display: inline-block;
+    }
+    .color-swatch.active { border-color: var(--text); }
+
+    .zoom-display {
+      color: var(--muted-2);
+      font-size: 11px;
+      min-width: 42px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .page-indicator {
+      color: var(--muted-2);
+      font-size: 11px;
+      margin-left: auto;
+      padding: 0 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    .page-indicator .current { color: var(--text); }
+
+    /* ---------- SIDEBAR ---------- */
+    #sidebar {
+      grid-area: sidebar;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px;
+    }
+    #sidebar::-webkit-scrollbar { width: 6px; }
+    #sidebar::-webkit-scrollbar-track { background: transparent; }
+    #sidebar::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+
+    .sidebar-header {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 4px 4px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .thumb {
+      position: relative;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      cursor: pointer;
+      transition: border-color 100ms;
+    }
+    .thumb:hover { border-color: var(--border-strong); }
+    .thumb.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .thumb.deleted {
+      opacity: 0.35;
+    }
+    .thumb canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: white;
+    }
+    .thumb-num {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background: rgba(0,0,0,0.75);
+      color: var(--text);
+      padding: 2px 6px;
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+    .thumb-actions {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      background: rgba(0,0,0,0.85);
+      opacity: 0;
+      transition: opacity 100ms;
+    }
+    .thumb:hover .thumb-actions { opacity: 1; }
+    .thumb-actions button {
+      flex: 1;
+      padding: 6px 0;
+      color: var(--muted-2);
+      font-size: 10px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    .thumb-actions button:last-child { border-right: none; }
+    .thumb-actions button:hover { color: var(--accent); background: rgba(245,158,11,0.1); }
+    .thumb-actions button.delete:hover { color: var(--danger); background: rgba(239,68,68,0.12); }
+
+    /* ---------- MAIN ---------- */
+    #main {
+      grid-area: main;
+      overflow: auto;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(245, 158, 11, 0.03), transparent 50%),
+        var(--bg);
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    #main::-webkit-scrollbar { width: 10px; height: 10px; }
+    #main::-webkit-scrollbar-track { background: transparent; }
+    #main::-webkit-scrollbar-thumb { background: #222; border-radius: 5px; }
+
+    .page-wrap {
+      position: relative;
+      background: var(--paper);
+      box-shadow: var(--paper-shadow);
+      display: inline-block;
+    }
+    .page-wrap canvas {
+      display: block;
+    }
+    #annotation-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      cursor: crosshair;
+    }
+    #annotation-canvas.select-mode { cursor: default; }
+
+    /* ---------- EMPTY STATE ---------- */
+    #empty-state {
+      grid-column: 1 / -1;
+      grid-row: 2 / -1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+    #empty-state.drag-over .drop-zone {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .drop-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 64px 96px;
+      border: 1px dashed var(--border-strong);
+      text-align: center;
+      transition: border-color 150ms, background 150ms;
+    }
+    .drop-zone h1 {
+      font-family: var(--serif);
+      font-size: 52px;
+      font-weight: 400;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .drop-zone h1 em {
+      color: var(--accent);
+    }
+    .drop-zone p {
+      color: var(--muted);
+      font-size: 12px;
+      max-width: 360px;
+      line-height: 1.6;
+    }
+    .drop-zone .hotkey {
+      color: var(--muted-2);
+      font-size: 11px;
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .drop-zone .hotkey kbd {
+      background: var(--panel);
+      border: 1px solid var(--border-strong);
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .hidden { display: none !important; }
+
+    /* toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel);
+      border: 1px solid var(--border-strong);
+      padding: 10px 16px;
+      border-radius: 2px;
+      color: var(--text);
+      font-size: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms, transform 200ms;
+      z-index: 100;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-4px);
+    }
+    #toast.error { border-color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="brand">
+      <div class="logo">Parchment<em>.</em></div>
+      <div class="tag">PDF Reader · Editor</div>
+    </div>
+    <div class="file-name" id="file-name-display"></div>
+    <div class="topbar-actions">
+      <button class="btn ghost" id="btn-open">Open</button>
+      <button class="btn ghost" id="btn-merge" disabled>Merge PDF</button>
+      <button class="btn primary" id="btn-save" disabled>Save PDF</button>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <div class="tool-group">
+      <span class="label">Tool</span>
+      <button class="tool-btn active" data-tool="select" title="Select (V)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7 17 2-7 7-2z"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="highlight" title="Highlight (H)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l8-8 4 4-8 8H6z"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="draw" title="Freehand (D)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="erase" title="Erase annotations on page (E)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M20 14l-7-7-10 10 4 4h6z"/></svg>
+      </button>
+    </div>
+
+    <div class="tool-group">
+      <span class="label">Color</span>
+      <span class="color-swatch active" data-color="#fde047" style="background:#fde047" title="Yellow"></span>
+      <span class="color-swatch" data-color="#86efac" style="background:#86efac" title="Green"></span>
+      <span class="color-swatch" data-color="#f9a8d4" style="background:#f9a8d4" title="Pink"></span>
+      <span class="color-swatch" data-color="#93c5fd" style="background:#93c5fd" title="Blue"></span>
+      <span class="color-swatch" data-color="#000000" style="background:#000000; border-color:#444" title="Black"></span>
+      <span class="color-swatch" data-color="#ef4444" style="background:#ef4444" title="Red"></span>
+    </div>
+
+    <div class="tool-group">
+      <span class="label">Page</span>
+      <button class="tool-btn" id="btn-rotate" title="Rotate current page 90° (R)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7M21 3v6h-6"/></svg>
+      </button>
+      <button class="tool-btn" id="btn-delete-page" title="Delete current page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>
+
+    <div class="tool-group">
+      <span class="label">Zoom</span>
+      <button class="tool-btn" id="btn-zoom-out">−</button>
+      <span class="zoom-display" id="zoom-display">120%</span>
+      <button class="tool-btn" id="btn-zoom-in">+</button>
+    </div>
+
+    <div class="tool-group" style="margin-left: auto; border-right: none;">
+      <button class="tool-btn" id="btn-prev-page">◀</button>
+      <span class="page-indicator">
+        <span class="current" id="page-current">—</span> / <span id="page-total">—</span>
+      </span>
+      <button class="tool-btn" id="btn-next-page">▶</button>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <span>Pages</span>
+      <span id="page-count-label"></span>
+    </div>
+    <div id="thumbs"></div>
+  </aside>
+
+  <!-- MAIN -->
+  <main id="main">
+    <div class="page-wrap" id="page-wrap">
+      <canvas id="pdf-canvas"></canvas>
+      <canvas id="annotation-canvas"></canvas>
+    </div>
+  </main>
+
+  <!-- EMPTY STATE (covers everything below topbar) -->
+  <div id="empty-state">
+    <div class="drop-zone" id="drop-zone">
+      <h1>Drop a PDF<em>.</em></h1>
+      <p>Or click to open. Parchment handles viewing, annotating, reordering, rotating, deleting, and merging pages. Your file never leaves your machine.</p>
+      <div class="hotkey">
+        <span><kbd>V</kbd> select</span>
+        <span><kbd>H</kbd> highlight</span>
+        <span><kbd>D</kbd> draw</span>
+        <span><kbd>⌘S</kbd> save</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept="application/pdf" class="hidden" />
+<input type="file" id="merge-input" accept="application/pdf" class="hidden" />
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+ * PARCHMENT — single-file PDF reader/editor prototype
+ * ------------------------------------------------------------
+ * Architecture
+ *   state.sources[sourceKey] = { bytes, pdfjsDoc }
+ *   state.pages = [{ sourceKey, srcIndex, rotation, annotations }]
+ *   annotations: [{ type: 'highlight'|'draw', color, ...geom }]
+ *     highlight: { x, y, w, h }                  (display px)
+ *     draw:      { points: [[x,y], ...], size }  (display px)
+ *
+ * On save, geometry is converted to PDF points (÷ renderScale,
+ * Y-flipped) and baked into a new PDF via pdf-lib.
+ * ============================================================ */
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const state = {
+  sources: {},              // { [key]: { bytes, pdfjsDoc } }
+  pages: [],                // ordered list of pages
+  currentPage: 0,
+  scale: 1.2,
+  tool: 'select',
+  color: '#fde047',
+  fileName: null,
+  renderScale: 1.5,         // internal resolution (independent of view scale)
+  _drawing: null,           // in-progress annotation
+};
+
+const $ = (id) => document.getElementById(id);
+const qsa = (sel) => Array.from(document.querySelectorAll(sel));
+
+/* ---------- File loading ---------- */
+async function loadPdfFromFile(file) {
+  try {
+    const bytes = await file.arrayBuffer();
+    const pdfjsDoc = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+
+    const key = 'src_' + Date.now();
+    state.sources = { [key]: { bytes, pdfjsDoc } };
+    state.pages = [];
+    for (let i = 0; i < pdfjsDoc.numPages; i++) {
+      state.pages.push({ sourceKey: key, srcIndex: i, rotation: 0, annotations: [] });
+    }
+    state.currentPage = 0;
+    state.fileName = file.name;
+    $('file-name-display').innerHTML = `<span class="dot">●</span>${file.name}`;
+    $('empty-state').classList.add('hidden');
+    $('btn-save').disabled = false;
+    $('btn-merge').disabled = false;
+    await renderAll();
+    toast(`Loaded ${pdfjsDoc.numPages} pages`);
+  } catch (err) {
+    console.error(err);
+    toast('Failed to load PDF: ' + err.message, true);
+  }
+}
+
+async function mergePdfFile(file) {
+  try {
+    const bytes = await file.arrayBuffer();
+    const pdfjsDoc = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+    const key = 'src_' + Date.now();
+    state.sources[key] = { bytes, pdfjsDoc };
+    for (let i = 0; i < pdfjsDoc.numPages; i++) {
+      state.pages.push({ sourceKey: key, srcIndex: i, rotation: 0, annotations: [] });
+    }
+    await renderAll();
+    toast(`Merged ${pdfjsDoc.numPages} pages from ${file.name}`);
+  } catch (err) {
+    console.error(err);
+    toast('Failed to merge: ' + err.message, true);
+  }
+}
+
+/* ---------- Rendering ---------- */
+async function renderPage(canvas, page, rotation, scale) {
+  const viewport = page.getViewport({ scale, rotation });
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+}
+
+async function renderMain() {
+  if (state.pages.length === 0) return;
+  const idx = Math.max(0, Math.min(state.currentPage, state.pages.length - 1));
+  state.currentPage = idx;
+  const p = state.pages[idx];
+  const src = state.sources[p.sourceKey];
+  const pdfPage = await src.pdfjsDoc.getPage(p.srcIndex + 1);
+
+  const canvas = $('pdf-canvas');
+  await renderPage(canvas, pdfPage, p.rotation, state.scale);
+
+  // size annotation canvas to match
+  const annCanvas = $('annotation-canvas');
+  annCanvas.width = canvas.width;
+  annCanvas.height = canvas.height;
+  drawAnnotations();
+
+  $('page-current').textContent = idx + 1;
+  $('page-total').textContent = state.pages.length;
+}
+
+function drawAnnotations() {
+  const canvas = $('annotation-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const page = state.pages[state.currentPage];
+  if (!page) return;
+  for (const ann of page.annotations) {
+    drawOne(ctx, ann);
+  }
+  if (state._drawing) drawOne(ctx, state._drawing);
+}
+
+function drawOne(ctx, ann) {
+  if (ann.type === 'highlight') {
+    ctx.fillStyle = ann.color;
+    ctx.globalAlpha = 0.4;
+    ctx.fillRect(ann.x, ann.y, ann.w, ann.h);
+    ctx.globalAlpha = 1;
+  } else if (ann.type === 'draw') {
+    ctx.strokeStyle = ann.color;
+    ctx.lineWidth = ann.size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ann.points.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+    ctx.stroke();
+  }
+}
+
+async function renderThumbs() {
+  const container = $('thumbs');
+  container.innerHTML = '';
+  $('page-count-label').textContent = state.pages.length;
+
+  for (let i = 0; i < state.pages.length; i++) {
+    const p = state.pages[i];
+    const src = state.sources[p.sourceKey];
+    const pdfPage = await src.pdfjsDoc.getPage(p.srcIndex + 1);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb' + (i === state.currentPage ? ' active' : '');
+
+    const canvas = document.createElement('canvas');
+    await renderPage(canvas, pdfPage, p.rotation, 0.2);
+    wrap.appendChild(canvas);
+
+    const num = document.createElement('div');
+    num.className = 'thumb-num';
+    num.textContent = i + 1;
+    wrap.appendChild(num);
+
+    const actions = document.createElement('div');
+    actions.className = 'thumb-actions';
+    actions.innerHTML = `
+      <button title="Move up">↑</button>
+      <button title="Rotate">↻</button>
+      <button class="delete" title="Delete">✕</button>
+      <button title="Move down">↓</button>
+    `;
+    const [upBtn, rotBtn, delBtn, downBtn] = actions.querySelectorAll('button');
+    upBtn.onclick = (e) => { e.stopPropagation(); movePage(i, i - 1); };
+    downBtn.onclick = (e) => { e.stopPropagation(); movePage(i, i + 1); };
+    rotBtn.onclick = (e) => { e.stopPropagation(); rotatePage(i); };
+    delBtn.onclick = (e) => { e.stopPropagation(); deletePage(i); };
+    wrap.appendChild(actions);
+
+    wrap.onclick = () => {
+      state.currentPage = i;
+      renderMain();
+      qsa('.thumb').forEach((t, j) => t.classList.toggle('active', j === i));
+    };
+
+    container.appendChild(wrap);
+  }
+}
+
+async function renderAll() {
+  await renderMain();
+  await renderThumbs();
+}
+
+/* ---------- Page operations ---------- */
+function movePage(from, to) {
+  if (to < 0 || to >= state.pages.length) return;
+  const [p] = state.pages.splice(from, 1);
+  state.pages.splice(to, 0, p);
+  if (state.currentPage === from) state.currentPage = to;
+  renderAll();
+}
+function rotatePage(index) {
+  const p = state.pages[index];
+  p.rotation = (p.rotation + 90) % 360;
+  // Annotations would need rotation transform to stay in place.
+  // For v1 we clear them on rotate to avoid misalignment.
+  if (p.annotations.length) {
+    p.annotations = [];
+    toast('Annotations cleared on rotated page');
+  }
+  renderAll();
+}
+function deletePage(index) {
+  if (state.pages.length === 1) return toast('Cannot delete the last page', true);
+  state.pages.splice(index, 1);
+  if (state.currentPage >= state.pages.length) state.currentPage = state.pages.length - 1;
+  renderAll();
+}
+
+/* ---------- Annotation input ---------- */
+const annCanvas = $('annotation-canvas');
+
+function canvasPoint(e) {
+  const rect = annCanvas.getBoundingClientRect();
+  return [
+    (e.clientX - rect.left) * (annCanvas.width / rect.width),
+    (e.clientY - rect.top) * (annCanvas.height / rect.height),
+  ];
+}
+
+annCanvas.addEventListener('mousedown', (e) => {
+  if (state.tool === 'select') return;
+  const [x, y] = canvasPoint(e);
+  if (state.tool === 'highlight') {
+    state._drawing = { type: 'highlight', color: state.color, x, y, w: 0, h: 0, _startX: x, _startY: y };
+  } else if (state.tool === 'draw') {
+    state._drawing = { type: 'draw', color: state.color, size: 2, points: [[x, y]] };
+  } else if (state.tool === 'erase') {
+    state.pages[state.currentPage].annotations = [];
+    drawAnnotations();
+    renderThumbs();
+  }
+});
+annCanvas.addEventListener('mousemove', (e) => {
+  if (!state._drawing) return;
+  const [x, y] = canvasPoint(e);
+  const d = state._drawing;
+  if (d.type === 'highlight') {
+    d.x = Math.min(d._startX, x);
+    d.y = Math.min(d._startY, y);
+    d.w = Math.abs(x - d._startX);
+    d.h = Math.abs(y - d._startY);
+  } else if (d.type === 'draw') {
+    d.points.push([x, y]);
+  }
+  drawAnnotations();
+});
+function endDraw() {
+  if (!state._drawing) return;
+  const d = state._drawing;
+  if (d.type === 'highlight' && (d.w > 4 && d.h > 4)) {
+    delete d._startX; delete d._startY;
+    state.pages[state.currentPage].annotations.push(d);
+  } else if (d.type === 'draw' && d.points.length > 1) {
+    state.pages[state.currentPage].annotations.push(d);
+  }
+  state._drawing = null;
+  drawAnnotations();
+}
+annCanvas.addEventListener('mouseup', endDraw);
+annCanvas.addEventListener('mouseleave', endDraw);
+
+/* ---------- Saving ---------- */
+async function savePdf() {
+  if (!state.pages.length) return;
+  toast('Building PDF…');
+  try {
+    const { PDFDocument, rgb, degrees } = PDFLib;
+
+    // Load source docs into pdf-lib, cached per sourceKey
+    const loaded = {};
+    for (const key of Object.keys(state.sources)) {
+      loaded[key] = await PDFDocument.load(state.sources[key].bytes);
+    }
+
+    const out = await PDFDocument.create();
+
+    for (const p of state.pages) {
+      const srcDoc = loaded[p.sourceKey];
+      const [copied] = await out.copyPages(srcDoc, [p.srcIndex]);
+
+      // Rotation on top of any existing rotation
+      if (p.rotation) {
+        const existing = copied.getRotation().angle || 0;
+        copied.setRotation(degrees((existing + p.rotation) % 360));
+      }
+
+      // Bake annotations — note: annotations were captured against the
+      // display canvas at state.scale with NO rotation applied at capture
+      // time (we clear on rotate), so we convert directly using state.scale.
+      const { width: pageWidth, height: pageHeight } = copied.getSize();
+      const displayScale = state.scale;
+
+      for (const ann of p.annotations) {
+        const col = hexToRgb(ann.color);
+        if (ann.type === 'highlight') {
+          const x = ann.x / displayScale;
+          const y = pageHeight - (ann.y + ann.h) / displayScale;
+          const w = ann.w / displayScale;
+          const h = ann.h / displayScale;
+          copied.drawRectangle({
+            x, y, width: w, height: h,
+            color: rgb(col[0], col[1], col[2]),
+            opacity: 0.4,
+          });
+        } else if (ann.type === 'draw') {
+          for (let i = 1; i < ann.points.length; i++) {
+            const [x1, y1] = ann.points[i - 1];
+            const [x2, y2] = ann.points[i];
+            copied.drawLine({
+              start: { x: x1 / displayScale, y: pageHeight - y1 / displayScale },
+              end:   { x: x2 / displayScale, y: pageHeight - y2 / displayScale },
+              thickness: ann.size,
+              color: rgb(col[0], col[1], col[2]),
+            });
+          }
+        }
+      }
+      out.addPage(copied);
+    }
+
+    const bytes = await out.save();
+    downloadBytes(bytes, (state.fileName || 'document').replace(/\.pdf$/i, '') + '.edited.pdf');
+    toast('Saved.');
+  } catch (err) {
+    console.error(err);
+    toast('Save failed: ' + err.message, true);
+  }
+}
+
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.substr(0, 2), 16) / 255,
+    parseInt(h.substr(2, 2), 16) / 255,
+    parseInt(h.substr(4, 2), 16) / 255,
+  ];
+}
+function downloadBytes(bytes, name) {
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ---------- UI wiring ---------- */
+function setTool(t) {
+  state.tool = t;
+  qsa('.tool-btn[data-tool]').forEach((b) => b.classList.toggle('active', b.dataset.tool === t));
+  annCanvas.classList.toggle('select-mode', t === 'select');
+}
+function setColor(c) {
+  state.color = c;
+  qsa('.color-swatch').forEach((s) => s.classList.toggle('active', s.dataset.color === c));
+}
+
+qsa('.tool-btn[data-tool]').forEach((b) => b.onclick = () => setTool(b.dataset.tool));
+qsa('.color-swatch').forEach((s) => s.onclick = () => setColor(s.dataset.color));
+
+$('btn-open').onclick = () => $('file-input').click();
+$('file-input').onchange = (e) => e.target.files[0] && loadPdfFromFile(e.target.files[0]);
+
+$('btn-merge').onclick = () => $('merge-input').click();
+$('merge-input').onchange = (e) => e.target.files[0] && mergePdfFile(e.target.files[0]);
+
+$('btn-save').onclick = savePdf;
+
+$('btn-rotate').onclick = () => rotatePage(state.currentPage);
+$('btn-delete-page').onclick = () => deletePage(state.currentPage);
+
+$('btn-zoom-in').onclick = () => { state.scale = Math.min(3, state.scale + 0.2); $('zoom-display').textContent = Math.round(state.scale * 100) + '%'; renderMain(); };
+$('btn-zoom-out').onclick = () => { state.scale = Math.max(0.4, state.scale - 0.2); $('zoom-display').textContent = Math.round(state.scale * 100) + '%'; renderMain(); };
+
+$('btn-prev-page').onclick = () => { if (state.currentPage > 0) { state.currentPage--; renderAll(); } };
+$('btn-next-page').onclick = () => { if (state.currentPage < state.pages.length - 1) { state.currentPage++; renderAll(); } };
+
+/* Drag-drop on empty state */
+const dropZone = $('drop-zone');
+const emptyState = $('empty-state');
+['dragenter', 'dragover'].forEach((ev) => {
+  document.addEventListener(ev, (e) => { e.preventDefault(); emptyState.classList.add('drag-over'); });
+});
+['dragleave', 'drop'].forEach((ev) => {
+  document.addEventListener(ev, (e) => { e.preventDefault(); emptyState.classList.remove('drag-over'); });
+});
+document.addEventListener('drop', (e) => {
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') loadPdfFromFile(f);
+});
+dropZone.onclick = () => $('file-input').click();
+
+/* Keyboard shortcuts */
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); if (!$('btn-save').disabled) savePdf(); return; }
+  if (state.pages.length === 0) return;
+  switch (e.key.toLowerCase()) {
+    case 'v': setTool('select'); break;
+    case 'h': setTool('highlight'); break;
+    case 'd': setTool('draw'); break;
+    case 'e': setTool('erase'); break;
+    case 'r': rotatePage(state.currentPage); break;
+    case 'arrowleft': if (state.currentPage > 0) { state.currentPage--; renderAll(); } break;
+    case 'arrowright': if (state.currentPage < state.pages.length - 1) { state.currentPage++; renderAll(); } break;
+  }
+});
+
+/* Toast */
+let toastTimer = null;
+function toast(msg, isError = false) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.toggle('error', isError);
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
