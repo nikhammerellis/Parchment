@@ -1,4 +1,4 @@
-appId: com.chaostheory.parchment
+appId: com.nikhammerellis.parchment
 productName: Parchment
 directories:
   output: dist
@@ -41,5 +41,5 @@ linux:
     - AppImage
     - deb
   category: Office
-  maintainer: chaostheorystudios.com
+  maintainer: Nik Hammer-Ellis
 npmRebuild: false

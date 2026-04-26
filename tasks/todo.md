@@ -250,7 +250,7 @@ the ICO / ICNS / AppImage variants from the PNG automatically.
   Waves 1, 2, 3a, 3b, 3c, 4, 5, 6, 7, 9 with one-line attribution per wave.
   Wave 8 deferred note included.
 - [x] **package.json metadata** — added `license: "MIT"`, `homepage`,
-  `repository`, `bugs` (placeholder GitHub URLs under chaostheorystudios org —
+  `repository`, `bugs` (placeholder GitHub URLs under nikhammerellis org —
   swap when the repo lands publicly). Description + author verified.
 - [x] **Distribution-readiness notes** — added in README Distribution section.
   No actual signing wired (out of scope for v1 — credentials needed).
@@ -426,7 +426,7 @@ gained a 240 ms slide from the right.
 
 Packaging-readiness items: `package.json` now carries `license: "MIT"`,
 `homepage`, `repository`, `bugs` (placeholder GitHub URLs under
-chaostheorystudios org); root `LICENSE` (MIT, © 2026 Chaos Theory Studios)
+nikhammerellis org); root `LICENSE` (MIT, © 2026 Nik Hammer-Ellis)
 and `CHANGELOG.md` (v0.1.0 dated 2026-04-19, one-line per-wave attribution)
 created. README adds Icon assets, About menu, Distribution (gatekeeper /
 SmartScreen / AppImage notes), and License sections. `npm run typecheck`,

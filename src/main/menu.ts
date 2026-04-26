@@ -8,7 +8,7 @@ function showAboutDialog(window: BrowserWindow): void {
     `Electron ${process.versions.electron}`,
     `Chromium ${process.versions.chrome}`,
     '',
-    '© 2026 Chaos Theory Studios'
+    '© 2026 Nik Hammer-Ellis'
   ].join('\n');
   void dialog.showMessageBox(window, {
     type: 'info',
@@ -258,7 +258,7 @@ export function buildMenu(window: BrowserWindow): void {
         {
           label: 'Learn More',
           click: async (): Promise<void> => {
-            await shell.openExternal('https://www.chaostheorystudios.com');
+            await shell.openExternal('https://github.com/nikhammerellis/parchment');
           }
         },
         // Win/Linux only — macOS uses the app-menu `role: 'about'` item instead.

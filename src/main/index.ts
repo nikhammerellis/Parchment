@@ -148,7 +148,7 @@ app.on('open-file', (event, path) => {
 });
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.chaostheory.parchment');
+  electronApp.setAppUserModelId('com.nikhammerellis.parchment');
 
   // macOS About panel — Win/Linux fall through to a manual dialog from the
   // Help menu (see `menu.ts`).
@@ -157,7 +157,7 @@ app.whenReady().then(() => {
       applicationName: 'Parchment',
       applicationVersion: app.getVersion(),
       version: app.getVersion(),
-      copyright: '© 2026 Chaos Theory Studios'
+      copyright: '© 2026 Nik Hammer-Ellis'
     });
   }
 

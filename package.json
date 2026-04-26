@@ -5,13 +5,13 @@
   "main": "./out/main/index.js",
   "author": "Nik Hammer-Ellis",
   "license": "MIT",
-  "homepage": "https://github.com/chaostheorystudios/parchment",
+  "homepage": "https://github.com/nikhammerellis/parchment",
   "repository": {
     "type": "git",
-    "url": "https://github.com/chaostheorystudios/parchment.git"
+    "url": "https://github.com/nikhammerellis/parchment.git"
   },
   "bugs": {
-    "url": "https://github.com/chaostheorystudios/parchment/issues"
+    "url": "https://github.com/nikhammerellis/parchment/issues"
   },
   "private": true,
   "scripts": {
